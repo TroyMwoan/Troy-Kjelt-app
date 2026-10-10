@@ -1,0 +1,15 @@
+{
+  "name": "Moppenboek Troy & Kjelt",
+  "short_name": "Moppenboek",
+  "description": "Samen ideeën verzamelen voor het moppenboek, sparren met ORBIT en het team om advies vragen.",
+  "lang": "nl",
+  "start_url": "/Troy-Kjelt-app/",
+  "scope": "/Troy-Kjelt-app/",
+  "display": "standalone",
+  "background_color": "#FFF9F0",
+  "theme_color": "#FFF9F0",
+  "icons": [
+    { "src": "/Troy-Kjelt-app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/Troy-Kjelt-app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
