@@ -1,5 +1,5 @@
 // Moppenboek Troy & Kjelt – instellingen (geen geheimen hier: deze file is publiek).
-// De Gemini-sleutel en de webhook staan in het tabblad Config van de Sheet,
+// De Gemini-sleutel staat in het tabblad Config van de Sheet,
 // zodat alleen Troy en Kjelt (ingelogd met Google) ze kunnen lezen.
 window.MOP_CONFIG = {
   // GitHub Pages-projectsite (pad is hoofdlettergevoelig).

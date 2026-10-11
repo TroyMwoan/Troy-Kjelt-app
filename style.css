@@ -30,6 +30,18 @@ nav.tabs button.on{color:var(--ink);background:#F6F1E8}
 .chip.on.Troy{background:var(--troy);border-color:var(--troy)} .chip.on.Kjelt{background:var(--kjelt);border-color:var(--kjelt)}
 .card{background:var(--card);border-radius:var(--r);padding:14px 14px 12px;margin-bottom:12px;border:1px solid var(--line);border-left:6px solid var(--line);box-shadow:0 1px 0 rgba(0,0,0,.03)}
 .card.Troy{border-left-color:var(--troy)} .card.Kjelt{border-left-color:var(--kjelt)}
+.card.teamitem{border-left-color:#d08900;background:#fffaf0}
+.card.teamitem.advised{border-left-color:var(--orbit);background:#f4fbf8}
+.viewtabs{display:flex;gap:6px;margin:0 0 8px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:4px}
+.viewtabs button{flex:1;padding:10px 8px;border-radius:10px;font-weight:800;font-size:14px;color:var(--muted)}
+.viewtabs button span{opacity:.7;font-size:12px}
+.viewtabs button.on{background:var(--ink);color:#fff}
+.viewtabs button.on.team{background:#8a6200}
+.listnote{margin:0 0 10px}
+.kind{margin-left:auto;font-size:12px;font-weight:800;padding:4px 9px;border-radius:999px;background:#F2F2F4;color:var(--muted)}
+.kind.team{background:#FFF3CF;color:#8a6200}
+.kind.advies{background:var(--orbit-soft);color:#0b6e55}
+.card .cat{display:inline-block;margin:0 0 8px}
 .card .hd{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .who{font-weight:800;font-size:15px} .who.Troy{color:var(--troy)} .who.Kjelt{color:var(--kjelt)} .who.ORBIT{color:var(--orbit)}
 .when{font-size:12px;color:var(--muted)}
@@ -39,6 +51,7 @@ nav.tabs button.on{color:var(--ink);background:#F6F1E8}
 .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
 .status{font-size:12px;font-weight:800;padding:4px 9px;border-radius:999px;background:#F2F2F4;color:var(--muted)}
 .status.team{background:#FFF3CF;color:#8a6200} .status.klaar{background:var(--orbit-soft);color:#0b6e55}
+.wait{margin:10px 0 0;padding:8px 10px;border-radius:12px;background:#FFF3CF;color:#8a6200;font-size:13px;font-weight:700;line-height:1.35}
 .btn{padding:10px 14px;border-radius:12px;font-weight:800;font-size:14px;background:var(--ink);color:#fff}
 .btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
 .btn.troy{background:var(--troy)} .btn.kjelt{background:var(--kjelt)} .btn.orbit{background:var(--orbit)}
@@ -50,7 +63,7 @@ nav.tabs button.on{color:var(--ink);background:#F6F1E8}
 .team p{margin:0 0 8px;white-space:pre-wrap} .team p:last-child{margin-bottom:0}
 .team .meta{font-size:12px;color:#3d7a68}
 .fab{position:fixed;right:max(18px,calc(50% - 302px));bottom:calc(84px + var(--safe-b));z-index:7;padding:14px 20px;border-radius:999px;font-weight:900;font-size:16px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.18)}
-.fab.Troy{background:var(--troy)} .fab.Kjelt{background:var(--kjelt)}
+.fab.Troy{background:var(--troy)} .fab.Kjelt{background:var(--kjelt)} .fab.team{background:#8a6200}
 .empty{text-align:center;color:var(--muted);padding:40px 20px}
 .empty .big{font-size:44px}
 /* chat */
@@ -85,11 +98,8 @@ textarea.inp{min-height:110px;resize:vertical}
 .ok{color:#0b6e55;font-weight:700} .bad{color:#b4321a;font-weight:700}
 .hint{color:var(--muted);font-weight:600;font-size:13px}
 .modelon{color:var(--orbit)}
-#adv{margin-top:4px}
-#adv summary{cursor:pointer;font-weight:800;color:var(--ink)}
-#adv[open] summary{margin-bottom:2px}
 select.inp{background:#fff}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + var(--safe-b));z-index:30;background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:700;max-width:90%;text-align:center}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + var(--safe-b));z-index:30;background:var(--ink);color:#fff;padding:10px 16px;border-radius:16px;font-size:14px;font-weight:700;max-width:90%;text-align:center;white-space:normal;line-height:1.35}
 .banner{background:#FFF3CF;border:1px solid #f3dc92;border-radius:14px;padding:10px 12px;margin-bottom:12px;font-size:14px;display:flex;gap:10px;align-items:center}
 /* login */
 .login{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px 24px}
