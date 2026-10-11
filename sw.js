@@ -1,5 +1,5 @@
 // Eenvoudige service worker: app-shell offline, Google-API's nooit cachen.
-const C = 'mop-v2';
+const C = 'mop-v5';
 const B = '/Troy-Kjelt-app/';
 const SHELL = [B, B + 'index.html', B + 'app.js', B + 'style.css', B + 'config.js', B + 'manifest.webmanifest', B + 'icon-192.png', B + 'icon-512.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(C).then((c) => c.addAll(SHELL))); self.skipWaiting(); });
