@@ -9,6 +9,11 @@ const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets/' + CFG.SHEET_ID;
 const GEMINI = 'https://generativelanguage.googleapis.com/v1beta/models/';
 const CATS = ['mop', 'titel', 'cover', 'verhaal', 'promo', 'overig'];
 const CAT_IC = { mop: '😂', titel: '🏷️', cover: '🎨', verhaal: '🗺️', promo: '🎬', overig: '💡' };
+const MODELS = [
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite' },
+];
 const REDIR = CFG.REDIRECT_URI;
 const LS = (k, v) => v === undefined ? (() => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } })() : localStorage.setItem(k, JSON.stringify(v));
 
@@ -21,7 +26,31 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const uid = (p) => p + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const nowIso = () => new Date().toISOString();
 const fmt = (iso) => { if (!iso) return ''; const d = new Date(iso); if (isNaN(d)) return iso; const t = new Date(); const same = d.toDateString() === t.toDateString(); return same ? 'vandaag ' + d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }); };
-let toastT; const toast = (m) => { S.toast = m; render(); clearTimeout(toastT); toastT = setTimeout(() => { S.toast = ''; render(); }, 2600); };
+let toastT; const toast = (m, ms = 2600) => { S.toast = m; render(); clearTimeout(toastT); toastT = setTimeout(() => { S.toast = ''; render(); }, ms); };
+const userKey = () => String(S.auth?.email || S.who || 'anon').toLowerCase();
+const modelStoreKey = () => 'mop.model.' + userKey();
+const hookStoreKey = () => 'mop.webhook.' + userKey();
+const savedModel = () => { const v = LS(modelStoreKey()); return typeof v === 'string' ? v.trim() : ''; };
+const sheetModel = () => String(S.conf.gemini_model || '').trim() || 'gemini-2.5-flash';
+const activeModel = () => savedModel() || sheetModel();
+const WEBHOOK_ADMINS = ['troygodijn@gmail.com', 'zoneromedia@gmail.com'];
+const canSeeWebhook = () => WEBHOOK_ADMINS.includes(String(S.auth?.email || '').toLowerCase());
+function webhookInUse() {
+  const over = canSeeWebhook() ? (LS(hookStoreKey()) || {}) : {};
+  const oUrl = String(over.url || '').trim(), oKey = String(over.key || '').trim();
+  const sUrl = String(S.conf.webhook_url || '').trim(), sKey = String(S.conf.webhook_key || '').trim();
+  return { url: oUrl || sUrl, key: oKey || sKey, overridden: !!(oUrl || oKey) };
+}
+function webhookProblem(w) {
+  const urlOk = /^https:\/\//.test(w.url);
+  if (urlOk && w.key) return '';
+  if (w.overridden && !urlOk) return 'De webhook-overschrijving heeft geen geldige https-URL. Pas hem aan onder Geavanceerd, of wis de overschrijving.';
+  if (w.overridden && !w.key) return 'Geen webhook-sleutel. Zet webhook_key in de Sheet, of vul een sleutel in onder Geavanceerd.';
+  const miss = [];
+  if (!urlOk) miss.push('webhook_url');
+  if (!w.key) miss.push('webhook_key');
+  return 'Geen webhook ingesteld: ' + miss.join(' en ') + ' ontbreekt in het tabblad Config van de Sheet.';
+}
 
 /* ---------- Wie is wie ---------- */
 const list = (base, extra) => [...base, ...String(extra || '').split(',')].map((e) => e.trim().toLowerCase()).filter(Boolean);
@@ -80,8 +109,9 @@ async function load() {
   const [I, C, F] = j.valueRanges.map((v) => v.values || []);
   S.ideas = I.map((r, i) => toObj(IDEA_COLS, r, i)).filter((x) => x.id);
   S.chat = C.map((r, i) => toObj(CHAT_COLS, r, i)).filter((x) => x.id);
-  S.conf = Object.fromEntries(F.filter((r) => r[0]).map((r, i) => [r[0], r[1] ?? '']));
-  S.confRow = Object.fromEntries(F.map((r, i) => [r[0], i + 2]));
+  const rows = F.map((r, i) => ({ key: String(r[0] || '').trim(), value: String(r[1] ?? '').trim(), row: i + 2 })).filter((r) => r.key);
+  S.conf = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  S.confRow = Object.fromEntries(rows.map((r) => [r.key, r.row]));
   LS('mop.cache.ideas', S.ideas); LS('mop.cache.chat', S.chat); LS('mop.cache.conf', S.conf);
 }
 async function append(tab, row) {
@@ -112,18 +142,23 @@ async function addIdea({ titel, tekst, categorie }) {
   await append('Ideeen', IDEA_COLS.map((c) => it[c]));
 }
 async function sendToTeam(idea) {
-  const url = String(S.conf.webhook_url || '').trim(), key = String(S.conf.webhook_key || '').trim();
-  if (!/^https:\/\//.test(url)) { toast('Nog geen webhook ingesteld. Zie Instellingen.'); S.tab = 'instellingen'; render(); return; }
+  const hook = webhookInUse();
+  const problem = webhookProblem(hook);
+  if (problem) {
+    if (canSeeWebhook()) { S.tab = 'instellingen'; LS('mop.tab', S.tab); if (hook.overridden) S.advOpen = true; toast(problem, 7000); }
+    else toast('Naar het team lukt nu niet. Vraag Troy om dit in te stellen.', 7000);
+    return;
+  }
   S.sending[idea.id] = true; render();
   try {
     const payload = { bron: 'moppenboek-app', van: S.who, idee_id: idea.id, titel: idea.titel, tekst: idea.tekst, categorie: idea.categorie };
     if (!DEMO) {
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: 'Bearer ' + key } : {}) }, body: JSON.stringify(payload) });
+      const r = await fetch(hook.url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + hook.key }, body: JSON.stringify(payload) });
       if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? 'webhook-sleutel geweigerd' : 'webhook gaf ' + r.status);
     }
     await setIdeaStatus(idea, 'bij team');
     toast('Naar het team gestuurd 🚀');
-  } catch (e) { toast('Versturen mislukt: ' + (e.message || e)); }
+  } catch (e) { toast('Versturen mislukt: ' + (canSeeWebhook() ? (e.message || e) : 'vraag Troy om de webhook te controleren.')); }
   finally { delete S.sending[idea.id]; render(); }
 }
 
@@ -149,7 +184,7 @@ async function askOrbit(text) {
         if (last && last.role === role) last.parts[0].text += '\n' + t; else contents.push({ role, parts: [{ text: t }] });
       });
       if (contents[0]?.role === 'model') contents.shift();
-      const model = S.conf.gemini_model || 'gemini-2.5-flash';
+      const model = activeModel();
       const r = await fetch(GEMINI + encodeURIComponent(model) + ':generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents, generationConfig: { temperature: 0.9, maxOutputTokens: 1024 } }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(r.status === 429 ? 'ORBIT is even te druk (quotum). Probeer zo opnieuw.' : 'ORBIT-fout ' + r.status);
@@ -212,17 +247,44 @@ function viewChat() {
   }).join('');
   return `<div class="chat">${ms || `<div class="empty"><div class="big">◎</div><p>Vraag ORBIT om moppen, titels of verhaalideeën. Troy en Kjelt zien allebei hetzelfde gesprek.</p></div>`}
   ${S.typing ? `<div class="typing">ORBIT denkt na…</div>` : ''}</div>
-  <div class="composer"><div class="in"><textarea id="say" rows="1" placeholder="Typ als ${esc(S.who)}…">${esc(LS('mop.draft') || '')}</textarea><button class="btn ${S.who === 'Troy' ? 'troy' : 'kjelt'}" data-a="send" ${S.typing ? 'disabled' : ''}>Stuur</button></div></div>`;
+  <div class="composer"><div class="modelnote">Actief model: ${esc(activeModel())}</div><div class="in"><textarea id="say" rows="1" placeholder="Typ als ${esc(S.who)}…">${esc(LS('mop.draft') || '')}</textarea><button class="btn ${S.who === 'Troy' ? 'troy' : 'kjelt'}" data-a="send" ${S.typing ? 'disabled' : ''}>Stuur</button></div></div>`;
 }
 function viewSettings() {
-  const hasHook = /^https:\/\//.test(S.conf.webhook_url || '');
+  const w = webhookInUse();
+  const problem = webhookProblem(w);
+  const active = activeModel();
+  const sheet = sheetModel();
+  const chosen = !!savedModel();
+  const showCustom = !!S.pickCustom || !MODELS.some((m) => m.id === active);
+  const modelField = S.modelDraft != null ? S.modelDraft : (MODELS.some((m) => m.id === active) ? '' : active);
+  const over = canSeeWebhook() ? (LS(hookStoreKey()) || {}) : {};
+  const hookField = S.hookDraft != null ? S.hookDraft : String(over.url || '');
+  const keyOn = !!(over.key || String(S.conf.webhook_key || '').trim());
+  const status = problem
+    ? `<span class="bad">${esc(problem)}</span>`
+    : (w.overridden
+      ? '<span class="ok">Actief ✓</span> Overschreven op dit apparaat. Zonder overschrijving geldt de Sheet.'
+      : '<span class="ok">Actief ✓</span> Automatisch gelezen uit de Sheet.');
+  const webhookBox = canSeeWebhook() ? `<div class="box"><h3>Naar het team</h3>
+    <p>Na het inloggen leest de app <b>webhook_url</b> en <b>webhook_key</b> uit het tabblad Config. Je hoeft ze hier niet in te vullen.</p>
+    <p>${status}</p>
+    <details id="adv" ${S.advOpen ? 'open' : ''}><summary>Geavanceerd</summary>
+      <p class="hint">Overschrijving alleen op dit apparaat, voor ${esc(S.who)}. Een leeg veld gebruikt de waarde uit de Sheet. De sleutel wordt nooit getoond.</p>
+      <label class="f">Webhook-URL</label><input class="inp" id="hook" autocomplete="off" placeholder="https://… (leeg = Sheet)" value="${esc(hookField)}">
+      <label class="f">Sender key ${over.key ? '(overschreven)' : keyOn ? '(uit de Sheet)' : ''}</label><input class="inp" id="hookkey" type="password" autocomplete="off" placeholder="${keyOn ? '••••••••' : 'alleen invullen om te overschrijven'}">
+      <div class="row"><button class="btn sm" data-a="savehook">Opslaan</button><button class="btn ghost sm" data-a="clearhook">Wis overschrijving</button></div>
+    </details></div>` : '';
   return `<div class="box"><h3>Ingelogd</h3><p>${av(S.who, true)} <b>${esc(S.who)}</b> · ${esc(S.auth?.email || 'demo')}</p><button class="btn ghost sm" data-a="logout">Uitloggen</button></div>
-  <div class="box"><h3>Naar het team (webhook)</h3>
-    <p>${hasHook ? '<span class="ok">Ingesteld ✓</span>' : '<span class="bad">Nog niet ingesteld</span>'} · Geldt voor jullie allebei (staat in de Sheet).</p>
-    <label class="f">Webhook-URL</label><input class="inp" id="hook" placeholder="https://api2.cursor.sh/automations/webhook/…" value="${esc(S.conf.webhook_url || '')}">
-    <label class="f">Sender key ${S.conf.webhook_key ? '(ingesteld, laat leeg om te houden)' : ''}</label><input class="inp" id="hookkey" type="password" autocomplete="off" placeholder="${S.conf.webhook_key ? '••••••••' : 'plak de key'}">
-    <div class="row"><button class="btn" data-a="savehook">Opslaan</button></div></div>
-  <div class="box"><h3>ORBIT</h3><p>${S.conf.gemini_key ? '<span class="ok">Klaar voor gebruik ✓</span>' : '<span class="bad">Geen sleutel in de Sheet</span>'} · model ${esc(S.conf.gemini_model || 'gemini-2.5-flash')}</p></div>
+  ${webhookBox}
+  <div class="box"><h3>ORBIT</h3>
+    <p>${S.conf.gemini_key ? '<span class="ok">Sleutel in de Sheet ✓</span>' : '<span class="bad">Geen sleutel in de Sheet</span>'}</p>
+    <p>Actief model: <b class="modelon">${esc(active)}</b>${chosen ? '' : ' <span class="hint">(standaard uit de Sheet)</span>'}</p>
+    <p class="hint">Standaard in de Sheet: ${esc(sheet)}. Jouw keuze blijft op dit apparaat staan voor ${esc(S.auth?.email || S.who)}.</p>
+    <label class="f">Model</label>
+    <select class="inp" id="modelpick">${MODELS.map((m) => `<option value="${m.id}" ${!showCustom && active === m.id ? 'selected' : ''}>${esc(m.label)}</option>`).join('')}<option value="__custom__" ${showCustom ? 'selected' : ''}>Eigen model-id</option></select>
+    ${showCustom ? `<label class="f">Eigen model-id</label><input class="inp" id="modelcustom" autocomplete="off" placeholder="bijv. gemini-2.5-flash" value="${esc(modelField)}"><div class="row"><button class="btn sm" data-a="savemodel">Gebruik dit model</button></div>` : ''}
+    ${chosen ? `<div class="row"><button class="btn ghost sm" data-a="resetmodel">Gebruik standaard uit de Sheet</button></div>` : ''}
+  </div>
   <div class="box"><h3>Op je beginscherm</h3><p><b>iPhone:</b> open in Safari › deel-knop › "Zet op beginscherm".<br><b>Android:</b> open in Chrome › ⋮ › "App installeren" of "Toevoegen aan startscherm".</p></div>
   <div class="box"><h3>Data</h3><p>Alles staat in de Sheet "Moppenboek Troy &amp; Kjelt – App data".</p><a class="btn ghost sm" style="text-decoration:none;display:inline-block" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/${esc(CFG.SHEET_ID)}/edit">Open de Sheet</a> <button class="btn ghost sm" data-a="refresh">Ververs nu</button></div>`;
 }
@@ -251,7 +313,20 @@ function render() {
 }
 
 /* ---------- Events ---------- */
-document.addEventListener('input', (e) => { if (e.target.id === 'say') { LS('mop.draft', e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px'; } });
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'say') { LS('mop.draft', e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px'; }
+  if (e.target.id === 'modelcustom') S.modelDraft = e.target.value;
+  if (e.target.id === 'hook') S.hookDraft = e.target.value;
+});
+document.addEventListener('toggle', (e) => { if (e.target.id === 'adv') S.advOpen = e.target.open; }, true);
+document.addEventListener('change', (e) => {
+  if (e.target.id !== 'modelpick') return;
+  const v = e.target.value;
+  if (v === '__custom__') { S.pickCustom = true; render(); return; }
+  S.pickCustom = false; S.modelDraft = null;
+  LS(modelStoreKey(), v);
+  toast('Model opgeslagen: ' + v);
+});
 document.addEventListener('keydown', (e) => { if (e.target.id === 'say' && e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); act('send'); } });
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-a]'); if (!el) return;
@@ -285,11 +360,37 @@ async function act(a, el) {
       const say = document.getElementById('say'); const v = (say?.value || '').trim(); if (!v || S.typing) return;
       say.value = ''; LS('mop.draft', ''); return askOrbit(v);
     }
+    if (a === 'savemodel') {
+      const id = (document.getElementById('modelcustom')?.value || '').trim();
+      if (!/^[a-zA-Z0-9._-]{3,80}$/.test(id)) return toast('Vul een model-id in, bijvoorbeeld gemini-2.5-flash.');
+      S.pickCustom = false; S.modelDraft = null;
+      LS(modelStoreKey(), id);
+      return toast('Model opgeslagen: ' + id);
+    }
+    if (a === 'resetmodel') {
+      localStorage.removeItem(modelStoreKey());
+      S.pickCustom = false; S.modelDraft = null;
+      return toast('Standaard uit de Sheet: ' + activeModel());
+    }
     if (a === 'savehook') {
-      const u = document.getElementById('hook').value.trim(), k = document.getElementById('hookkey').value.trim();
+      if (!canSeeWebhook()) return;
+      const u = (document.getElementById('hook')?.value || '').trim();
+      const k = (document.getElementById('hookkey')?.value || '').trim();
       if (u && !/^https:\/\/\S+$/.test(u)) return toast('De URL moet met https:// beginnen.');
-      await setConf('webhook_url', u); if (k) await setConf('webhook_key', k);
-      render(); return toast('Webhook opgeslagen ✓');
+      const prev = LS(hookStoreKey()) || {};
+      const next = {};
+      if (u) next.url = u;
+      if (k) next.key = k; else if (prev.key) next.key = prev.key;
+      S.advOpen = true; S.hookDraft = u;
+      if (!next.url && !next.key) localStorage.removeItem(hookStoreKey());
+      else LS(hookStoreKey(), next);
+      return toast(next.url || next.key ? 'Overschrijving opgeslagen op dit apparaat.' : 'Overschrijving gewist. De Sheet geldt weer.');
+    }
+    if (a === 'clearhook') {
+      if (!canSeeWebhook()) return;
+      localStorage.removeItem(hookStoreKey());
+      S.advOpen = true; S.hookDraft = '';
+      return toast('Overschrijving gewist. De Sheet geldt weer.');
     }
     if (a === 'refresh') { await load(); render(); return toast('Bijgewerkt ✓'); }
   } catch (err) { toast(err.message || String(err)); render(); }
@@ -297,11 +398,12 @@ async function act(a, el) {
 
 /* ---------- Start ---------- */
 function demoSeed() {
-  const who = Q.get('demo') === 'kjelt' ? 'Kjelt' : 'Troy';
-  S.auth = { email: who === 'Troy' ? 'troygodijn@gmail.com' : 'kjelt.framerush@gmail.com', token: 'demo', exp: 9e15 };
-  S.who = who; if (Q.get('tab')) S.tab = Q.get('tab');
+  const demoId = String(Q.get('demo') || '');
+  const email = demoId === 'kjelt' ? 'kjelt.framerush@gmail.com' : demoId === 'zonero' ? 'zoneromedia@gmail.com' : 'troygodijn@gmail.com';
+  S.auth = { email, token: 'demo', exp: 9e15 };
+  S.who = email.includes('kjelt') ? 'Kjelt' : 'Troy'; if (Q.get('tab')) S.tab = Q.get('tab');
   const t = (m) => new Date(Date.now() - m * 60000).toISOString();
-  S.conf = { gemini_key: 'demo', webhook_url: 'https://example.invalid/demo', webhook_key: 'demo' };
+  S.conf = { gemini_key: 'demo', gemini_model: 'gemini-2.5-flash', webhook_url: 'https://example.invalid/demo', webhook_key: 'demo' };
   S.ideas = [
     { id: 'i1', auteur: 'Troy', titel: 'Piraat Bills Beste Moppenkist', tekst: 'Als Nederlandse titel. Kist past bij de schat en bij een "kist vol moppen".', categorie: 'titel', aangemaakt: t(300), status: 'bij team', team_samenvatting: 'Het team vindt het een sterke titel: kort, piraterig en "moppenkist" is meteen duidelijk voor kinderen. Creative Director wil wel nog een check of de titel al bestaat.', team_advies: 'Ga voor "Piraat Bills Beste Moppenkist". Research checkt bij Bol en het CB of er al een boek met die naam is. Vormgeving maakt er een cover-schets bij.', team_op: t(120) },
     { id: 'i2', auteur: 'Kjelt', titel: 'Wat is het lievelingsvak van Piraat Bill?', tekst: 'Aaarrr-drijkskunde!', categorie: 'mop', aangemaakt: t(200), status: 'nieuw', team_samenvatting: '', team_advies: '', team_op: '' },

@@ -54,7 +54,7 @@ nav.tabs button.on{color:var(--ink);background:#F6F1E8}
 .empty{text-align:center;color:var(--muted);padding:40px 20px}
 .empty .big{font-size:44px}
 /* chat */
-.chat{display:flex;flex-direction:column;gap:12px;padding-bottom:84px}
+.chat{display:flex;flex-direction:column;gap:12px;padding-bottom:108px}
 .msg{display:flex;gap:9px;align-items:flex-end;max-width:92%}
 .msg.mine{align-self:flex-end;flex-direction:row-reverse}
 .bub{border-radius:18px;padding:9px 13px 8px;background:#fff;border:1px solid var(--line)}
@@ -64,7 +64,8 @@ nav.tabs button.on{color:var(--ink);background:#F6F1E8}
 .bub .bt{white-space:pre-wrap}
 .bub .act{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
 .bub .act button{font-size:12px;font-weight:800;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.75);border:1px solid var(--line)}
-.composer{position:fixed;left:0;right:0;bottom:calc(64px + var(--safe-b));z-index:6;display:flex;justify-content:center;padding:8px 12px;background:linear-gradient(transparent,var(--bg) 30%)}
+.composer{position:fixed;left:0;right:0;bottom:calc(64px + var(--safe-b));z-index:6;display:flex;flex-direction:column;align-items:center;padding:8px 12px;background:linear-gradient(transparent,var(--bg) 30%)}
+.composer .modelnote{font-size:12px;font-weight:800;color:var(--orbit);margin-bottom:4px}
 .composer .in{display:flex;gap:8px;max-width:616px;width:100%;align-items:flex-end}
 .composer textarea{flex:1;resize:none;border-radius:20px;border:1.5px solid var(--line);background:#fff;padding:11px 14px;max-height:140px;outline:none}
 .composer textarea:focus{border-color:var(--ink)}
@@ -82,6 +83,12 @@ textarea.inp{min-height:110px;resize:vertical}
 .box h3{margin:0 0 6px;font-size:16px}
 .box p{margin:0 0 8px;color:var(--muted);font-size:14px}
 .ok{color:#0b6e55;font-weight:700} .bad{color:#b4321a;font-weight:700}
+.hint{color:var(--muted);font-weight:600;font-size:13px}
+.modelon{color:var(--orbit)}
+#adv{margin-top:4px}
+#adv summary{cursor:pointer;font-weight:800;color:var(--ink)}
+#adv[open] summary{margin-bottom:2px}
+select.inp{background:#fff}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + var(--safe-b));z-index:30;background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:700;max-width:90%;text-align:center}
 .banner{background:#FFF3CF;border:1px solid #f3dc92;border-radius:14px;padding:10px 12px;margin-bottom:12px;font-size:14px;display:flex;gap:10px;align-items:center}
 /* login */
